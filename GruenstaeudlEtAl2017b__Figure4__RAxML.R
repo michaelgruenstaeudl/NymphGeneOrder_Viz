@@ -33,14 +33,10 @@ outDir = dirname(inFile)
 outFn = paste(file_path_sans_ext(inFile), '_', sep='')
 outFile = paste(outFn, '_viz.svg', sep='')
 
-##############################
-# STEP 2. Adjust taxon names #
-##############################
-
 # LOAD ALIGNMENTS
 tree <- read.raxml(inFile)
 
-## FOR FUTURE
+## REPLACE TAXON NAME PARTS - FOR FUTURE
 #lbls_old = get.tree(tree)$tip.label
 #l1 = gsub("_", " ", lbls)
 ##l2 = lapply(l1, function(x) paste("paste(italic('", x, "'))", sep=""))
@@ -50,43 +46,43 @@ tree <- read.raxml(inFile)
 #ggtree(tree) %<+% d + geom_tiplab(aes(label=label2))
 
 ###########################
-# STEP 3. Construct Trees #
+# STEP 2. Construct Trees #
 ###########################
 
-# CONSTRUCT CLADOGRAM WITH BOOTSTRAP VALUES
-p1 <- ggtree(tree, branch.length="none", size=0.75) +
-        theme(plot.margin=unit(c(1,1,1,1),"cm")) +
+# CONSTRUCT BASE CLADOGRAM
+p1 <- ggtree(tree, branch.length="none", size=0.75)
+# RE-FORMAT AND ADD TIP LABELS
+p1_lbls_new <- gsub("_", " ", p1$data$label[which(p1$data$isTip==TRUE)])
+p1 <- p1 + geom_tiplab(label = p1_lbls_new, fontface="italic", offset=0.2)
+# ADD BOOTSTRAP VALUES AND FORMAT TREE
+p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         #geom_tiplab(offset=0.2, fontface="italic") +
         #geom_label(aes(label=bootstrap), hjust=1.5, vjust=-0.5) +
         geom_text(aes(label=bootstrap), hjust=1.25, vjust=-0.5) +
         geom_treescale(x=0, y=0, width=0.01, color='white') +                   # To adjust height compared to phylogram plot
-        ggtitle('Cladogram\nBootstrap values above branches') +
+        ggtitle('50% Majority Rule Consensus tree\nBootstrap values above branches') +
         ggplot2::xlim(0, 15)                                                    # Important for long tip labels (i.e., long taxon names)
 
-# Properly formatting labels
-p1 <- p1 + geom_tiplab(label = gsub("_", " ", p1$data$label[which(p1$data$isTip==TRUE)]),
-                       fontface="italic",
-                       offset=0.2)
 
-# CONSTRUCT PHYLOGRAM WITH SCALEBAR
-p2 <- ggtree(tree, size=0.75) +
-        theme(plot.margin=unit(c(1,1,1,1),"cm")) +
-        #geom_tiplab(offset=0.001, fontface="italic") +
+# CONSTRUCT BASE PHYLOGRAM
+p2 <- ggtree(tree_MCC, size=0.75)
+# RE-FORMAT AND ADD TIP LABELS
+p2_lbls_new <- gsub("_", " ", p2$data$label[which(p2$data$isTip==TRUE)])
+p2 <- p2 + geom_tiplab(label = p2_lbls_new, fontface="italic", offset=0.001)
+# ADD SCALEBAR AND FORMAT TREE
+p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
+        geom_text(aes(label=posterior), hjust=1.25, vjust=-0.5) + 
+        geom_tiplab(offset=0.001, fontface="italic") +
         geom_treescale(x=0, y=0, width=0.01) +
-        ggtitle('Phylogram') +
-        ggplot2::xlim(0, 0.23)                                                    # Important for long tip labels (i.e., long taxon names)
-
-# Properly formatting labels
-p2 <- p2 + geom_tiplab(label = gsub("_", " ", p2$data$label[which(p2$data$isTip==TRUE)]),
-                       fontface="italic",
-                       offset=0.001)
+        ggtitle('Maximum Clade Credibility tree\nPosterior probability values above branches') +
+        ggplot2::xlim(0, 0.23)                                                  # Important for long tip labels (i.e., long taxon names)
 
 ##############################################
 # STEP 3. Construct final plot, save to file #
 ##############################################
 
 # CONSTRUCT MULTIPLOT AND SAVE
-svglite(outFile, width=20, height=10, standalone=TRUE)
+svglite(outFile, width=25, height=25, standalone=TRUE)
     grid.arrange(p1, p2, top=textGrob(analysis_title),
                  layout_matrix = matrix(c(1,2), ncol=2, byrow=TRUE),
                  widths=c(0.3,0.7))
