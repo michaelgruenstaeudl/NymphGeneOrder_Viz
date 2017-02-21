@@ -10,6 +10,7 @@ analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
                         "Nucleotide substitution model: GTRGAMMAI; ",
                         "Resampling support: 1000 rapid bootstrap runs\n",
                         "Tree rooting: none / unrooted\n",
+                        "Date: ", Sys.time(),
                         sep ='')
 
 #############
