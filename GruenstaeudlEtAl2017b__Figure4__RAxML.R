@@ -1,12 +1,12 @@
 #!/usr/bin/R
-#author = "Michael Gruenstaeudl, PhD <mi.gruenstaeudl@gmail.com>"
+#author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.02.14.1800"
+#version = "2017.02.27.1600"
 
 # ANALYSIS TITLE
 analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
-                        "Software used: RAxML v.8.2.9; ",
-                        "Data partitioning: 1 distinct model/data partition with joint branchlength optimization\n",
+                        "Software used: RAxML v.8.2.9\n",
+                        "Data partitioning: 2 distinct data partitions with joint branchlength estimation\n",
                         "Nucleotide substitution model: GTRGAMMAI; ",
                         "Resampling support: 1000 rapid bootstrap runs\n",
                         "Tree rooting: none / unrooted\n",
@@ -19,14 +19,14 @@ analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
 library(ggtree)
 library(grid)
 library(gridExtra)
-library(svglite) # For improved svg drivers
-library(tcltk)   # For dialog boxes
-library(tools)   # For function 'file_path_sans_ext'
+library(svglite)    # For improved svg drivers
+library(tcltk)      # For dialog boxes
+library(tools)      # For function 'file_path_sans_ext'
 
 ####################################
 # STEP 1. Specify in- and outfiles #
 ####################################
-# SPECIFYING INFILES
+# SPECIFYING INFILE
 inFile = tk_choose.files(caption='Select .tre file')
 
 # SPECIFYING OUTFILES
@@ -34,52 +34,64 @@ outDir = dirname(inFile)
 outFn = paste(file_path_sans_ext(inFile), '_', sep='')
 outFile = paste(outFn, '_viz.svg', sep='')
 
-# LOAD ALIGNMENTS
+# SPECIFYING OUTGROUP
+my_outgroup = "Amborella_trichopoda_NC_005086"
+
+###############################
+# STEP 2. Load and root trees #
+###############################
+
+# LOAD TREE
 tree <- read.raxml(inFile)
 
-## REPLACE TAXON NAME PARTS - FOR FUTURE
-#lbls_old = get.tree(tree)$tip.label
-#l1 = gsub("_", " ", lbls)
-##l2 = lapply(l1, function(x) paste("paste(italic('", x, "'))", sep=""))
-##lbls_new = lapply(l2, function(x) paste("'", x, "'", sep=""))
-##d = as.data.frame(cbind(label=lbls_old, label2=lbls_new))
-#d = as.data.frame(cbind(label=lbls_old, label2=l))
-#ggtree(tree) %<+% d + geom_tiplab(aes(label=label2))
+# INFER NODE NUMBER OUT OUTGROUP
+
+# ROOT TREE
+#tree_MCC@phylo <- ape::root(tree_MCC@phylo, node = X, edgelabel=TRUE)
+tree@phylo <- ape::root(tree@phylo, outgroup=my_outgroup, edgelabel=TRUE)
 
 ###########################
-# STEP 2. Construct Trees #
+# STEP 3. Construct Trees #
 ###########################
 
 # CONSTRUCT BASE CLADOGRAM
 p1 <- ggtree(tree, branch.length="none", size=0.75)
-# RE-FORMAT AND ADD TIP LABELS
+# RE-FORMAT TIP LABELS
 p1_lbls_new <- gsub("_", " ", p1$data$label[which(p1$data$isTip==TRUE)])
+# ADD TIP LABELS
 p1 <- p1 + geom_tiplab(label = p1_lbls_new, fontface="italic", offset=0.2)
-# ADD BOOTSTRAP VALUES AND FORMAT TREE
+# RE-FORMAT BOOTSTRAP VALUES
+d <- p1$data # Get from phylo, not from p1
+d <- d[!d$isTip,]
+d$bootstrap <- round(as.numeric(d$bootstrap), digits=2)
+p1_bootstrap <- d[d$bootstrap > 50,]
+# ADD BOOTSTRAP VALUES
+p1 <- p1 + geom_text(data=p1_bootstrap, aes(label=bootstrap), hjust=1.25, vjust=-0.5)
+# TFL would be more efficient, but would not have any rounding
+# p1 + geom_text2(aes(label=label, subset = !is.na(as.numeric(posterior)) & as.numeric(posterior) > 80))
+# FORMAT TREE
 p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
-        #geom_tiplab(offset=0.2, fontface="italic") +
-        #geom_label(aes(label=bootstrap), hjust=1.5, vjust=-0.5) +
-        geom_text(aes(label=bootstrap), hjust=1.25, vjust=-0.5) +
+        geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint
         geom_treescale(x=0, y=0, width=0.01, color='white') +                   # To adjust height compared to phylogram plot
-        ggtitle('50% Majority Rule Consensus tree\nBootstrap values above branches') +
-        ggplot2::xlim(0, 15)                                                    # Important for long tip labels (i.e., long taxon names)
-
+        ggtitle('Best ML tree as cladogram\nBootstrap values above branches') +
+        ggplot2::xlim(0, 40)                                                    # Important for long tip labels (i.e., long taxon names)
 
 # CONSTRUCT BASE PHYLOGRAM
-p2 <- ggtree(tree_MCC, size=0.75)
-# RE-FORMAT AND ADD TIP LABELS
+p2 <- ggtree(tree, size=0.75)
+# RE-FORMAT TIP LABELS
 p2_lbls_new <- gsub("_", " ", p2$data$label[which(p2$data$isTip==TRUE)])
+# ADD TIP LABELS
 p2 <- p2 + geom_tiplab(label = p2_lbls_new, fontface="italic", offset=0.001)
 # ADD SCALEBAR AND FORMAT TREE
 p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
-        geom_text(aes(label=posterior), hjust=1.25, vjust=-0.5) + 
-        geom_tiplab(offset=0.001, fontface="italic") +
+        geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint
         geom_treescale(x=0, y=0, width=0.01) +
-        ggtitle('Maximum Clade Credibility tree\nPosterior probability values above branches') +
-        ggplot2::xlim(0, 0.23)                                                  # Important for long tip labels (i.e., long taxon names)
+        ggtitle('Best ML tree') +
+        #ggplot2::xlim(0, 0.5)                                                   # Important for long tip labels (i.e., long taxon names)
+        ggplot2::xlim(0, 0.6)                                                   # Important for long tip labels (i.e., long taxon names)
 
 ##############################################
-# STEP 3. Construct final plot, save to file #
+# STEP 4. Construct final plot, save to file #
 ##############################################
 
 # CONSTRUCT MULTIPLOT AND SAVE

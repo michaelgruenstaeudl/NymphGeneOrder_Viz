@@ -1,7 +1,7 @@
 #!/usr/bin/R
 #author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.02.27.1600"
+#version = "2017.02.17.1300"
 
 # ANALYSIS TITLE
 
@@ -21,33 +21,27 @@ title_MCC = paste("Maximum Clade Credibility Tree of Posterior Tree Distribution
                         "Date: ", Sys.time(),
                         sep ='')
 
+
 #############
 # Libraries #
 #############
 library(ggtree)
 library(grid)
 library(gridExtra)
-library(svglite)    # For improved svg drivers
-library(tcltk)      # For dialog boxes
-library(tools)      # For function 'file_path_sans_ext'
+library(svglite) # For improved svg drivers
+library(tcltk)   # For dialog boxes
+library(tools)   # For function 'file_path_sans_ext'
 
 ####################################
 # STEP 1. Specify in- and outfiles #
 ####################################
-# SPECIFYING INFILE
+# SPECIFYING INFILES
 inFile_MCC = tk_choose.files(caption='Select file of Maximum Clade Credibility tree')
 
 # SPECIFYING OUTFILES
 outDir = dirname(inFile_MCC)
 outFn = paste(file_path_sans_ext(inFile_MCC), '_', sep='')
 outFile = paste(outFn, '_viz.svg', sep='')
-
-# SPECIFYING OUTGROUP
-my_outgroup = "Amborella_trichopoda_NC_005086"
-
-###############################
-# STEP 2. Load and root trees #
-###############################
 
 # REMOVING NEGATIVE BRANCH LENGTHS - IMPORTANT B/C TREEANNOTATOR SOMETIMES GENERATES THEM
 inFile_MCC_adj = paste(file_path_sans_ext(inFile_MCC), '_noNegBrLens.tre', sep='')
@@ -58,55 +52,43 @@ system(cmd)
 # LOAD ALIGNMENTS
 tree_MCC <- ggtree::read.beast(inFile_MCC_adj) # The function read.beast exists in several packages, but often generates different output.
 
-# INFER NODE NUMBER OUT OUTGROUP
-# Future code here.
-
-# ROOT TREE
-#tree_MCC@phylo <- ape::root(tree_MCC@phylo, node = X, edgelabel=TRUE)
-tree_MCC@phylo <- ape::root(tree_MCC@phylo, outgroup=my_outgroup, edgelabel=TRUE)
-
 ###########################
-# STEP 3. Construct Trees #
+# STEP 2. Construct Trees #
 ###########################
 
 # DISPLAY MCC AS CLADOGRAM WITH PP-VALUES
 p1 <- ggtree(tree_MCC, branch.length="none", size=0.75)
-# RE-FORMAT TIP LABELS
+# RE-FORMAT AND ADD TIP LABELS
 p1_tiplabels <- gsub("_", " ", p1$data$label[which(p1$data$isTip==TRUE)])
-# ADD TIP LABELS
 p1 <- p1 + geom_tiplab(label = p1_tiplabels, fontface="italic", offset=0.2)
-# RE-FORMAT PP-VALUES
+# RE-FORMAT AND ADD POSTERIOR VALUES
 d <- p1$data # Get from phylo, not from p1
 d <- d[!d$isTip,]
 d$posterior <- round(as.numeric(d$posterior), digits=2)
 p1_posterior <- d[d$posterior > 0.5,]
-# ADD PP-VALUES
 p1 <- p1 + geom_text(data=p1_posterior, aes(label=posterior), hjust=1.25, vjust=-0.5)
 # TFL would be more efficient, but would not have any rounding
 # p1 + geom_text2(aes(label=label, subset = !is.na(as.numeric(posterior)) & as.numeric(posterior) > 80))
 # FORMAT TREE
 p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
-        geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint
         geom_treescale(x=0, y=0, width=0.01, color='white') +                   # To adjust height compared to phylogram plot
         ggtitle('Maximum Clade Credibility tree as cladogram\nPosterior probability values greater than 0.5 are displayed above branches') +
         ggplot2::xlim(0, 30)                                                    # Important for long tip labels (i.e., long taxon names)
 
 # DISPLAY MCC AS PHYLOGRAM
 p2 <- ggtree(tree_MCC, size=0.75)
-# RE-FORMAT TIP LABELS
+# RE-FORMAT AND ADD TIP LABELS
 p2_tiplabels <- gsub("_", " ", p2$data$label[which(p2$data$isTip==TRUE)])
-# ADD TIP LABELS
 p2 <- p2 + geom_tiplab(label = p2_tiplabels, fontface="italic", offset=0.001)
 # ADD SCALEBAR AND FORMAT TREE
 p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
-        geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint
         geom_treescale(x=0, y=0, width=0.01) +
         ggtitle('Maximum Clade Credibility tree') +
         ggplot2::xlim(0, 0.40)                                                  # Important for long tip labels (i.e., long taxon names)
 #        ggplot2::xlim(0, 3)                                                  # Important for long tip labels (i.e., long taxon names)
 
 ##############################################
-# STEP 4. Construct final plot, save to file #
+# STEP 3. Construct final plot, save to file #
 ##############################################
 
 # CONSTRUCT MULTIPLOT AND SAVE
