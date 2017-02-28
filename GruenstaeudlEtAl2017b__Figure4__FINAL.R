@@ -1,7 +1,7 @@
 #!/usr/bin/R
 #author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.02.27.1800"
+#version = "2017.02.27.2330"
 
 # ANALYSIS TITLE
 analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
@@ -21,6 +21,7 @@ library(gridExtra)
 library(svglite)    # For improved svg drivers
 library(tcltk)      # For dialog boxes
 library(tools)      # For function 'file_path_sans_ext'
+library(treeio)     # For function 'as.treedata'
 library(random)     # To generate random number
 
 ####################################
@@ -55,7 +56,9 @@ system(cmd)
 tree <- ggtree::read.raxml(inFile_plotTree)
 
 # LOAD TREE WITH THE ADDITIONAL SUPPORT VALUES
-suppVals <- ape::read.nexus(outFile_suppVals)
+tree_suppVals <- ape::read.nexus(outFile_suppVals)
+nl <- tree_suppVals$node.label
+suppVals = as.treedata(tree_suppVals, boot=nl)
 
 # INFER NODE NUMBER OUT OUTGROUP
 # Future code here.
@@ -84,8 +87,16 @@ p1 <- p1 + geom_text(data=p1_bootstrap, aes(label=bootstrap), hjust=1.25, vjust=
 # TFL would be more efficient, but would not have any rounding
 # p1 + geom_text2(aes(label=label, subset = !is.na(as.numeric(posterior)) & as.numeric(posterior) > 80))
 
-# ADD POSTERIOR PROBABILITIES FROM SUPPVALS TREE
-p1 <- p1 + geom_text(data=suppVals, aes(label=bootstrap), hjust=1.25, vjust=-0.5)
+# Convert POSTERIOR PROBABILITIES FROM SUPPVALS TREE
+pp <- suppVals@data
+pp <- pp[which(pp[,"node"] %in% p1_bootstrap[,"node"]),"bootstrap"]
+ppV <- round(as.numeric(as.character(pp)), digits=2)
+new_bootstrap = p1_bootstrap
+new_bootstrap[,"bootstrap"] = c(NA, ppV)
+# GET PP VALUES > 0.5
+new_bootstrap <- new_bootstrap[new_bootstrap$bootstrap > 0.5,]
+
+p1 <- p1 + geom_text(data=new_bootstrap, aes(label=bootstrap), hjust=2.25, vjust=-0.5, fontface="italic")
 
 # FORMAT TREE
 p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
