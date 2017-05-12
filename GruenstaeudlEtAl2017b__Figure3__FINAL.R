@@ -38,7 +38,9 @@ outFile_suppVals = paste(outFn, '_suppVals.tre', sep='')
 outFile_plotTree = paste(outFn, '_viz.svg', sep='')
 
 # SPECIFYING OUTGROUP
-my_outgroup = "Amborella_trichopoda_NC_005086"
+#my_outgroup = "Amborella_trichopoda_NC_005086"
+my_outgroup = "Amborella_trichopoda"
+#my_outgroup = "NC_005086"
 
 ###################################################################
 # STEP SPECIAL. Summarize posterior probabilities on best ML tree #
@@ -77,6 +79,7 @@ p1 <- ggtree(tree, branch.length="none", size=0.75)
 p1_lbls_new <- gsub("_", " ", p1$data$label[which(p1$data$isTip==TRUE)])
 # ADD TIP LABELS
 p1 <- p1 + geom_tiplab(label = p1_lbls_new, fontface="italic", offset=0.2)
+#p1 <- p1 + geom_tiplab(label = p1_lbls_new, offset=0.2)
 # RE-FORMAT BOOTSTRAP VALUES
 d <- p1$data # Get from phylo, not from p1
 d <- d[!d$isTip,]
@@ -113,6 +116,7 @@ p2 <- ggtree(tree, size=0.75)
 # RE-FORMAT AND ADD TIP LABELS
 p2_lbls_new <- gsub("_", " ", p2$data$label[which(p2$data$isTip==TRUE)])
 p2 <- p2 + geom_tiplab(label = p2_lbls_new, fontface="italic", offset=0.001)
+#p2 <- p2 + geom_tiplab(label = p2_lbls_new, offset=0.001)
 # ADD SCALEBAR AND FORMAT TREE
 p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint

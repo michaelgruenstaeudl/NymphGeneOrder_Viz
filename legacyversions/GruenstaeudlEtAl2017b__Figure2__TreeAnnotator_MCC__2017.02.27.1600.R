@@ -1,15 +1,16 @@
 #!/usr/bin/R
 #author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.05.11.2000"
+#version = "2017.02.27.1600"
 
 # ANALYSIS TITLE
 title_MCC = paste("Maximum Clade Credibility Tree of Posterior Tree Distribution\n",
-                  "Software used: MrBayes v.3.2.5\n",
-                  "Data partitioning: N of individual partitions: 77; each partition is analyzed under its own best-fitting model;\n branch length optimization is linked across partitions\n",
-                  "Nucleotide substitution models: see Appendix; ",
-                  "Tree rooting: none / unrooted\n",
-                  "Date: ", Sys.time(), sep ='')
+                        "Software used: MrBayes v.3.2.5\n",
+                        "Data partitioning: 1 distinct model/data partition with joint branchlength optimization\n",
+                        "Nucleotide substitution model: GTR+I+G; ",
+                        "Tree rooting: none / unrooted\n",
+                        "Date: ", Sys.time(),
+                        sep ='')
 
 #############
 # Libraries #
@@ -46,7 +47,7 @@ cmd = paste("sed -e 's,:-[0-9\\.]\\+,:0.0,g'", inFile_MCC, ">", inFile_MCC_adj)
 system(cmd)
 
 # LOAD TREE
-tree_MCC <- treeio::read.beast(inFile_MCC_adj) # The function read.beast exists in several packages, but often generates different output.
+tree_MCC <- ggtree::read.beast(inFile_MCC_adj) # The function read.beast exists in several packages, but often generates different output.
 
 # INFER NODE NUMBER OUT OUTGROUP
 # Place future code here.
