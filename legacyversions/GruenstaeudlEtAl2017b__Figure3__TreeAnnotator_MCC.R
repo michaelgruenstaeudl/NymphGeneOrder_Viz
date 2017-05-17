@@ -1,17 +1,25 @@
 #!/usr/bin/R
 #author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.05.11.2000"
+#version = "2017.02.27.1600"
 
 # ANALYSIS TITLE
-title_MCC = paste(  "Maximum Clade Credibility Tree of Posterior Tree Distribution\n",
-                    "Software used: MrBayes v.3.2.5\n",
-                    #"Data partitioning: Best partitioning scheme identified by PartitionFinder2;\nbranch length optimization is linked across partitions\n",
-                    #"Data partitioning: By codon;\nbranch length optimization is linked across partitions\n",
-                    "Data partitioning: N of individual partitions: 77;\nbranch length optimization is linked across partitions\n",
-                    "Nucleotide substitution models: see Appendix; ",
-                    "Tree rooting: none / unrooted\n",
-                    "Date: ", Sys.time(), sep ='')
+
+## UNPARTITIONED
+#title_MCC = paste("Maximum Clade Credibility Tree of Posterior Tree Distribution\n",
+#                        "Software used: MrBayes v.3.2.5; ",
+#                        "Data partitioning: 1 distinct data partition with joint branchlength estimation\n",
+#                        "Nucleotide substitution model: GTR+I+G; ",
+#                        "Tree rooting: none / unrooted\n",
+#                        sep ='')
+## PARTITIONED
+title_MCC = paste("Maximum Clade Credibility Tree of Posterior Tree Distribution\n",
+                        "Software used: MrBayes v.3.2.5\n",
+                        "Data partitioning: 2 distinct data partitions with joint branchlength estimation\n",
+                        "Nucleotide substitution model: GTR+I+G; Binary substitution model\n",
+                        "Tree rooting: none / unrooted\n",
+                        "Date: ", Sys.time(),
+                        sep ='')
 
 #############
 # Libraries #
@@ -19,9 +27,9 @@ title_MCC = paste(  "Maximum Clade Credibility Tree of Posterior Tree Distributi
 library(ggtree)
 library(grid)
 library(gridExtra)
-library(svglite) # For improved svg drivers
-library(tcltk)   # For dialog boxes
-library(tools)   # For function 'file_path_sans_ext'
+library(svglite)    # For improved svg drivers
+library(tcltk)      # For dialog boxes
+library(tools)      # For function 'file_path_sans_ext'
 
 ####################################
 # STEP 1. Specify in- and outfiles #
@@ -47,11 +55,11 @@ inFile_MCC_adj = paste(file_path_sans_ext(inFile_MCC), '_noNegBrLens.tre', sep='
 cmd = paste("sed -e 's,:-[0-9\\.]\\+,:0.0,g'", inFile_MCC, ">", inFile_MCC_adj)
 system(cmd)
 
-# LOAD TREE
-tree_MCC <- treeio::read.beast(inFile_MCC_adj) # The function read.beast exists in several packages, but often generates different output.
+# LOAD ALIGNMENTS
+tree_MCC <- ggtree::read.beast(inFile_MCC_adj) # The function read.beast exists in several packages, but often generates different output.
 
 # INFER NODE NUMBER OUT OUTGROUP
-# Place future code here.
+# Future code here.
 
 # ROOT TREE
 #tree_MCC@phylo <- ape::root(tree_MCC@phylo, node = X, edgelabel=TRUE)
@@ -81,7 +89,7 @@ p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint
         geom_treescale(x=0, y=0, width=0.01, color='white') +                   # To adjust height compared to phylogram plot
         ggtitle('Maximum Clade Credibility tree as cladogram\nPosterior probability values greater than 0.5 are displayed above branches') +
-        ggplot2::xlim(0, 35)                                                    # Important for long tip labels (i.e., long taxon names)
+        ggplot2::xlim(0, 30)                                                    # Important for long tip labels (i.e., long taxon names)
 
 # DISPLAY MCC AS PHYLOGRAM
 p2 <- ggtree(tree_MCC, size=0.75)
@@ -94,14 +102,15 @@ p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         geom_rootpoint() +                                                      # Add a dot to indicate the rootpoint
         geom_treescale(x=0, y=0, width=0.01) +
         ggtitle('Maximum Clade Credibility tree') +
-        ggplot2::xlim(0, 0.18)                                                  # Important for long tip labels (i.e., long taxon names)
+        ggplot2::xlim(0, 0.40)                                                  # Important for long tip labels (i.e., long taxon names)
+#        ggplot2::xlim(0, 3)                                                  # Important for long tip labels (i.e., long taxon names)
 
 ##############################################
-# STEP 3. Construct final plot, save to file #
+# STEP 4. Construct final plot, save to file #
 ##############################################
 
 # CONSTRUCT MULTIPLOT AND SAVE
-svglite(outFile, width=20, height=10, standalone=TRUE)
+svglite(outFile, width=25, height=25, standalone=TRUE)
     grid.arrange(p1, p2, top=textGrob(title_MCC),
                  layout_matrix = matrix(c(1,2), ncol=2, byrow=TRUE),
                  widths=c(0.3,0.7))
