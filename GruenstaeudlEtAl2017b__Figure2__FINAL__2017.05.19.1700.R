@@ -1,7 +1,7 @@
 #!/usr/bin/R
 #author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.05.17.2200"
+#version = "2017.05.19.1700"
 
 # ANALYSIS TITLE
 analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
@@ -13,7 +13,7 @@ analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
                         "Data partitioning: Best partitioning scheme as identified by PartitionFinder2; branch length optimization is linked across partitions\n",
                         "Nucleotide substitution model: ML analysis: GTRGAMMAI (for Bayesian inference: best-fitting model per partition)\n",
                         "Resampling support: 1000 rapid bootstrap runs (for Bayesian inference: 1000 post-burnin MCMC runs)\n",
-                        "Tree rooting: none / unrooted\n",
+                        #"Tree rooting: none / unrooted\n",
                         "Date: ", Sys.time(),
                         sep ='')
 
@@ -27,7 +27,7 @@ library(svglite)    # For improved svg drivers
 library(tcltk)      # For dialog boxes
 library(tools)      # For function 'file_path_sans_ext'
 library(treeio)     # For function 'as.treedata'
-library(random)     # To generate random number
+#library(random)     # To generate random number
 
 
 ####################################
@@ -42,6 +42,11 @@ outDir = dirname(inFile_plotTree)
 outFn = paste(file_path_sans_ext(inFile_plotTree), '_', sep='')
 outFile_suppVals = paste(outFn, '_suppVals.tre', sep='')
 outFile_plotTree = paste(outFn, '_viz.svg', sep='')
+
+Rplot_cladogram = paste(outFn, '_cladogramPlot.Rdata', sep='')
+Rtree_cladogram = paste(outFn, '_cladogramTreeObj.Rdata', sep='')
+Rplot_phylogram = paste(outFn, '_phylogramPlot.Rdata', sep='')
+Rtree_phylogram = paste(outFn, '_phylogramTreeObj.Rdata', sep='')
 
 # SPECIFYING OUTGROUP
 my_outgroup = "Amborella_trichopoda_NC_005086"
@@ -63,18 +68,24 @@ system(cmd2)
 ###############################
 
 # LOAD TREE TO BE PLOTTED
-tree <- treeio::read.raxml(inFile_plotTree)
+#tree <- ggtree::read.raxml(inFile_plotTree)    # ABANDONING FUNCTION read.raxml B/C TOO BUGGY
+tree <- ape::read.tree(inFile_plotTree)         # Loading RAxML-file ".bipartitions" via APE-function
 
 # LOAD TREE WITH THE ADDITIONAL SUPPORT VALUES
 tree_suppVals <- ape::read.nexus(outFile_suppVals)
+#nl <- tree_suppVals$node.label                 # COMMENTED OUT B/C ABANDONING FUNCTION read.raxml
+#suppVals = as.treedata(tree_suppVals, boot=nl) # COMMENTED OUT B/C ABANDONING FUNCTION read.raxml
+
+# ROOT TREES
+##tree_MCC@phylo <- ape::root(tree_MCC@phylo, node = X, edgelabel=TRUE)             # COMMENTED OUT B/C ABANDONING FUNCTION read.raxml
+#tree@phylo <- ape::root(tree@phylo, outgroup=my_outgroup, edgelabel=TRUE)          # COMMENTED OUT B/C ABANDONING FUNCTION read.raxml
+#suppVals@phylo <- ape::root(suppVals@phylo, outgroup=my_outgroup, edgelabel=TRUE)  # COMMENTED OUT B/C ABANDONING FUNCTION read.raxml
+tree <- ape::root(tree, outgroup=my_outgroup, edgelabel=TRUE)
+tree_suppVals <- ape::root(tree_suppVals, outgroup=my_outgroup, edgelabel=TRUE)
+
+# EXTRACT SUPPORT VALS
 nl <- tree_suppVals$node.label
 suppVals = as.treedata(tree_suppVals, boot=nl)
-
-###################################
-# ROOT TREE - IF NECESSARY - PART 1
-#tree@phylo <- ape::root(tree@phylo, outgroup=my_outgroup, edgelabel=TRUE)
-#suppVals@phylo <- ape::root(suppVals@phylo, outgroup=my_outgroup, edgelabel=TRUE)
-###################################
 
 ################################
 # STEP 3a. CONSTRUCT CLADOGRAM #
@@ -88,6 +99,13 @@ p1 <- p1 + geom_tiplab(label = p1_lbls_new, fontface="italic", offset=0.2)
 # RE-FORMAT BOOTSTRAP VALUES
 d <- p1$data # Get from phylo, not from p1
 d <- d[!d$isTip,]
+
+if ((!("bootstrap" %in% colnames(d))) & ("label" %in% colnames(d))) {
+    colnames(d)[which("label"==colnames(d))] <- "bootstrap"
+} else {
+    stop('ERROR: Cannot find column label either `bootstrap` or `label` in tree.')
+}
+
 d$bootstrap <- round(as.numeric(d$bootstrap), digits=2)
 p1_bootstrap <- d[d$bootstrap > 50,]
 # ADD BOOTSTRAP VALUES
@@ -99,13 +117,9 @@ p1 <- p1 + geom_text(data=p1_bootstrap, aes(label=bootstrap), hjust=1.25, vjust=
 pp <- suppVals@data
 pp <- pp[which(pp[,"node"] %in% p1_bootstrap[,"node"]),"bootstrap"]
 ppV <- round(as.numeric(as.character(pp)), digits=2)
-new_bootstrap = p1_bootstrap
-
-# IF ROOTED A PRIORI
-new_bootstrap[,"bootstrap"] = c(NA, NA, 1.00, ppV)
-# IF NOT ROOTED A PRIORI
-#new_bootstrap[,"bootstrap"] = c(NA, ppV)
-
+new_bootstrap <- p1_bootstrap
+#new_bootstrap[,"bootstrap"] <- c(NA, ppV)
+new_bootstrap[,"bootstrap"] <- c(NA, NA, 1.00, ppV)
 # GET PP VALUES > 0.5
 new_bootstrap <- new_bootstrap[new_bootstrap$bootstrap > 0.5,]
 
@@ -117,6 +131,11 @@ p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         geom_treescale(x=0, y=0, width=0.01, color='white') +                   # To adjust height compared to phylogram plot
         ggtitle('Best ML tree as cladogram\nBootstrap values above branches') +
         ggplot2::xlim(0, 15)                                                    # Important for long tip labels (i.e., long taxon names)
+
+# SAVING AS PLOT AND TREE
+save(p1, file=Rplot_cladogram)
+tree_p1 = as.phylo(p1)
+save(tree_p1, file=Rtree_cladogram)
 
 ################################
 # STEP 3b. CONSTRUCT PHYLOGRAM #
@@ -133,6 +152,11 @@ p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         ggtitle('Best ML tree') +
         #ggplot2::xlim(0, 0.5)                                                   # Important for long tip labels (i.e., long taxon names)
         ggplot2::xlim(0, 0.23)                                                  # Important for long tip labels (i.e., long taxon names)
+
+# SAVING AS PLOT AND TREE
+save(p2, file=Rplot_phylogram)
+tree_p2 = as.phylo(p2)
+save(tree_p2, file=Rtree_phylogram)
 
 ##############################################
 # STEP 4. Construct final plot, save to file #

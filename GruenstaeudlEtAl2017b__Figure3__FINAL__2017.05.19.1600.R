@@ -138,7 +138,6 @@ save(p1, file=Rplot_cladogram)
 tree_p1 = as.phylo(p1)
 save(tree_p1, file=Rtree_cladogram)
 
-
 ################################
 # STEP 3b. CONSTRUCT PHYLOGRAM #
 ################################

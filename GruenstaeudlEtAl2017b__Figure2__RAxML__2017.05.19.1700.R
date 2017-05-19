@@ -1,17 +1,18 @@
 #!/usr/bin/R
 #author = "Michael Gruenstaeudl, PhD <m.gruenstaeudl@fu-berlin.de>"
 #copyright = "Copyright (C) 2017 Michael Gruenstaeudl"
-#version = "2017.05.17.1900"
+#version = "2017.05.19.1700"
 
 # ANALYSIS TITLE
 analysis_title = paste( "Phylogenetic Tree with Highest Likelihood Score\n",
                         "Software used: RAxML v.8.2.9\n",
-                        #"Data partitioning: Best partitioning scheme identified by PartitionFinder2; each partition is analyzed under its own best-fitting model;\nbranch length optimization is linked across partitions\n",
-                        #"Data partitioning: By codon; each of the three partitions is analyzed under its own best-fitting model;\nbranch length optimization is linked across partitions\n",
-                        "Data partitioning: N of individual partitions: 77; each partition is analyzed under its own best-fitting model;\nbranch length optimization is linked across partitions\n",
+                        "Data partitioning: None; the entire dataset is analyzed as a single data partition\n",
+                        #"Data partitioning: By gene; branch length optimization is linked across partitions\n",
+                        #"Data partitioning: By codon; branch length optimization is linked across partitions\n",
+                        #"Data partitioning: Best partitioning scheme as identified by PartitionFinder2; branch length optimization is linked across partitions\n",
                         "Nucleotide substitution model: GTRGAMMAI; ",
                         "Resampling support: 1000 rapid bootstrap runs\n",
-                        "Tree rooting: none / unrooted\n",
+                        #"Tree rooting: none / unrooted\n",
                         "Date: ", Sys.time(),
                         sep ='')
 
@@ -37,6 +38,11 @@ outDir = dirname(inFile)
 outFn = paste(file_path_sans_ext(inFile), '_', sep='')
 outFile = paste(outFn, '_viz.svg', sep='')
 
+Rplot_cladogram = paste(outFn, '_cladogramPlot.Rdata', sep='')
+Rtree_cladogram = paste(outFn, '_cladogramTreeObj.Rdata', sep='')
+Rplot_phylogram = paste(outFn, '_phylogramPlot.Rdata', sep='')
+Rtree_phylogram = paste(outFn, '_phylogramTreeObj.Rdata', sep='')
+
 # SPECIFYING OUTGROUP
 my_outgroup = "Amborella_trichopoda_NC_005086"
 
@@ -44,20 +50,21 @@ my_outgroup = "Amborella_trichopoda_NC_005086"
 # STEP 2. Load and root trees #
 ###############################
 
-# LOAD ALIGNMENTS
-tree <- read.raxml(inFile)
+# LOAD TREE TO BE PLOTTED
+#tree <- ggtree::read.raxml(inFile)    # ABANDONING FUNCTION read.raxml B/C TOO BUGGY
+tree <- ape::read.tree(inFile)         # Loading RAxML-file ".bipartitions" via APE-function
 
-###################################
-# ROOT TREE - IF NECESSARY - PART 1
-#tree_MCC@phylo <- ape::root(tree_MCC@phylo, node = X, edgelabel=TRUE)
-#tree@phylo <- ape::root(tree@phylo, outgroup=my_outgroup, edgelabel=TRUE) # edgelabel is important
-###################################
+# ROOT TREES
+#tree@phylo <- ape::root(tree@phylo, outgroup=my_outgroup, edgelabel=TRUE) # COMMENTED OUT B/C ABANDONING FUNCTION read.raxml
+tree <- ape::root(tree, outgroup=my_outgroup, edgelabel=TRUE) # edgelabel is important
 
 ###########################
 # STEP 3. Construct Trees #
 ###########################
 
-# CONSTRUCT BASE CLADOGRAM
+################################
+# STEP 3a. CONSTRUCT CLADOGRAM #
+################################
 p1 <- ggtree(tree, branch.length="none", size=0.75, ladderize=TRUE)
 # RE-FORMAT TIP LABELS
 p1_lbls_new <- gsub("_", " ", p1$data$label[which(p1$data$isTip==TRUE)])
@@ -65,16 +72,15 @@ p1 <- p1 + geom_tiplab(label = p1_lbls_new, fontface="italic", offset=0.2)
 # RE-FORMAT BOOTSTRAP VALUES
 d <- p1$data # Data has to be from p1, cannot be from phylo
 d <- d[!d$isTip,]
+
+if ((!("bootstrap" %in% colnames(d))) & ("label" %in% colnames(d))) {
+    colnames(d)[which("label"==colnames(d))] <- "bootstrap"
+} else {
+    stop('ERROR: Cannot find column label either `bootstrap` or `label` in tree.')
+}
+
 d$bootstrap <- round(as.numeric(d$bootstrap), digits=2)
 p1_bootstrap <- d[d$bootstrap > 50,]
-
-###################################
-# ROOT TREE - IF NECESSARY - PART 2
-## ALL NODE LABELS ARE BY SHIFTED ONE ROW IN p1_bootstrap$bootstrap (PROBABLY BUG IN read.raxml; see #https://github.com/GuangchuangYu/ggtree/issues/89); MUST ADJUST
-#copy_BSvals = p1_bootstrap$bootstrap
-#new_BSvals = c(NA, copy_BSvals[length(copy_BSvals)], copy_BSvals[2:(length(copy_BSvals)-1)])
-#p1_bootstrap$bootstrap = new_BSvals
-###################################
 
 p1 <- p1 + geom_text(data=p1_bootstrap, aes(label=bootstrap), hjust=1.25, vjust=-0.5)
 # TFL would be more efficient, but would not have any rounding
@@ -85,6 +91,15 @@ p1 <- p1 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         geom_treescale(x=0, y=0, width=0.01, color='white') +                   # To adjust height compared to phylogram plot
         ggtitle('Best ML tree as cladogram\nBootstrap values above branches') +
         ggplot2::xlim(0, 15)                                                    # Important for long tip labels (i.e., long taxon names)
+
+# SAVING AS PLOT AND TREE
+save(p1, file=Rplot_cladogram)
+tree_p1 = as.phylo(p1)
+save(tree_p1, file=Rtree_cladogram)
+
+################################
+# STEP 3b. CONSTRUCT PHYLOGRAM #
+################################
 
 # CONSTRUCT BASE PHYLOGRAM
 p2 <- ggtree(tree, size=0.75)
@@ -98,8 +113,13 @@ p2 <- p2 + theme(plot.margin=unit(c(1,1,1,1),"cm")) +
         ggtitle('Best ML tree') +
         ggplot2::xlim(0, 0.23)                                                  # Important for long tip labels (i.e., long taxon names)
 
+# SAVING AS PLOT AND TREE
+save(p2, file=Rplot_phylogram)
+tree_p2 = as.phylo(p2)
+save(tree_p2, file=Rtree_phylogram)
+
 ##############################################
-# STEP 3. Construct final plot, save to file #
+# STEP 4. Construct final plot, save to file #
 ##############################################
 
 # CONSTRUCT MULTIPLOT AND SAVE
